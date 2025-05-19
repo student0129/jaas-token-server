@@ -27,7 +27,14 @@ app.post('/token', (req, res) => {
     exp: Math.floor(Date.now() / 1000) + (60 * 60)
   };
 
-  const token = jwt.sign(payload, APP_SECRET);
+  const token = jwt.sign(payload, APP_SECRET, {
+  algorithm: 'HS256',
+  header: {
+    kid: APP_ID,
+    typ: 'JWT'
+  }
+});
+
   res.send({ token });
 });
 
