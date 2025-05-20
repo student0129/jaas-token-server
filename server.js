@@ -36,7 +36,7 @@ app.post('/token', (req, res) => {
   };
   
   const token = jwt.sign(payload, APP_SECRET, {
-    algorithm: 'HS256',
+    algorithm: 'RS256',
     header: {
       kid: APP_ID,
       typ: 'JWT'
