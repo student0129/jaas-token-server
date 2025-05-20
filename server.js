@@ -6,36 +6,47 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 const APP_ID = process.env.APP_ID;
-const APP_SECRET = process.env.APP_SECRET;
+const PRIVATE_KEY = process.env.PRIVATE_KEY; // This must be an RS256 private key
 
 app.post('/token', (req, res) => {
-  const { name } = req.body;
+  const { name, room } = req.body;
   
   // Determine if user is moderator based on whether their name includes "taher"
   const isModerator = name && name.toLowerCase().includes('taher');
   
-  // Extract the sub value from APP_ID (everything before the first slash)
+  // Extract the sub value from APP_ID
   const SUB = APP_ID.split('/')[0];
+  
+  const now = Math.floor(Date.now() / 1000);
   
   const payload = {
     aud: 'jitsi',
     iss: 'chat',
+    iat: now,
+    exp: now + 3600,
+    nbf: now - 5,
     sub: SUB,
-    room: '*',
+    room: room || '*',
     context: {
-      user: {
-        name: name || 'Guest',
-        moderator: isModerator // Set based on name check for "taher"
-      },
       features: {
         livestreaming: false,
+        'outbound-call': false,
+        'sip-outbound-call': false,
+        transcription: false,
         recording: false
+      },
+      user: {
+        'hidden-from-recorder': false,
+        moderator: isModerator,
+        name: name || 'Guest',
+        id: `user-${Date.now()}`,
+        avatar: "",
+        email: ""
       }
-    },
-    exp: Math.floor(Date.now() / 1000) + (60 * 60)
+    }
   };
   
-  const token = jwt.sign(payload, APP_SECRET, {
+  const token = jwt.sign(payload, PRIVATE_KEY, {
     algorithm: 'RS256',
     header: {
       kid: APP_ID,
