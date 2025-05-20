@@ -78,23 +78,6 @@ app.post('/token', (req, res) => {
   }
 });
 
-app.post('/meeting-settings', (req, res) => {
-  const { fqn } = req.body;
-  console.log('Settings requested for:', fqn);
-  
-  // You can implement logic here to determine settings based on the room
-  // For now, we'll enable lobby for all meetings
-  const settings = {
-    lobbyEnabled: true,
-    lobbyType: "WAIT_FOR_MODERATOR", // Lobby disables after first moderator joins
-    passcode: "", // No passcode required
-    maxOccupants: 20 // Limit to 20 participants
-  };
-  
-  console.log('Responding with settings:', settings);
-  res.json(settings);
-});
-
 app.listen(3000, () => {
   console.log('Server running on port 3000');
 });
