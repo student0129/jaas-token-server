@@ -67,9 +67,9 @@ app.post('/token', (req, res) => {
     const token = jwt.sign(payload, privateKey, options);
     
     // For debugging - remove in production
-    const decodedToken = jwt.decode(token, { complete: true });
-    console.log('Header:', JSON.stringify(decodedToken.header, null, 2));
-    console.log('Payload:', JSON.stringify(decodedToken.payload, null, 2));
+    // const decodedToken = jwt.decode(token, { complete: true });
+    // console.log('Header:', JSON.stringify(decodedToken.header, null, 2));
+    // console.log('Payload:', JSON.stringify(decodedToken.payload, null, 2));
     
     res.json({ token });
   } catch (error) {
