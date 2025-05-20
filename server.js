@@ -36,7 +36,7 @@ app.post('/token', (req, res) => {
     sub: SUB,        // The part before the slash in APP_ID
     context: {
       features: {
-        livestreaming: true,
+        livestreaming: isModerator,
         'outbound-call': true,
         'sip-outbound-call': false,
         transcription: true,
