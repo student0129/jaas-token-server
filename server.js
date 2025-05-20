@@ -16,15 +16,15 @@ app.post('/token', (req, res) => {
   
   const payload = {
     aud: 'jitsi',
-    iss: 'chat', // Changed from APP_ID to 'chat' as required in error message
-    sub: SUB, // Using the part before the slash as required
+    iss: 'chat',
+    sub: SUB, // ONLY the part before the slash
     room: '*',
     context: {
       user: {
         name: name || 'Guest',
-        moderator: !!isModerator // Moved moderator inside user object
+        moderator: !!isModerator
       },
-      features: { // Added features object as required by error message
+      features: {
         livestreaming: false,
         recording: false
       }
@@ -35,7 +35,7 @@ app.post('/token', (req, res) => {
   const token = jwt.sign(payload, APP_SECRET, {
     algorithm: 'HS256',
     header: {
-      kid: APP_ID,
+      kid: APP_ID, // The FULL APP_ID including the slash part
       typ: 'JWT'
     }
   });
