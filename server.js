@@ -9,7 +9,10 @@ const APP_ID = process.env.APP_ID;
 const APP_SECRET = process.env.APP_SECRET;
 
 app.post('/token', (req, res) => {
-  const { name, isModerator } = req.body;
+  const { name } = req.body;
+  
+  // Determine if user is moderator based on whether their name includes "taher"
+  const isModerator = name && name.toLowerCase().includes('taher');
   
   // Extract the sub value from APP_ID (everything before the first slash)
   const SUB = APP_ID.split('/')[0];
@@ -17,12 +20,12 @@ app.post('/token', (req, res) => {
   const payload = {
     aud: 'jitsi',
     iss: 'chat',
-    sub: SUB, // ONLY the part before the slash
+    sub: SUB,
     room: '*',
     context: {
       user: {
         name: name || 'Guest',
-        moderator: !!isModerator
+        moderator: isModerator // Set based on name check for "taher"
       },
       features: {
         livestreaming: false,
@@ -35,7 +38,7 @@ app.post('/token', (req, res) => {
   const token = jwt.sign(payload, APP_SECRET, {
     algorithm: 'HS256',
     header: {
-      kid: APP_ID, // The FULL APP_ID including the slash part
+      kid: APP_ID,
       typ: 'JWT'
     }
   });
