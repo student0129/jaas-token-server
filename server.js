@@ -51,7 +51,7 @@ app.post('/token', (req, res) => {
         email: email || ""
       }
     },
-    room: room || '*'  // Use specific room if provided, otherwise wildcard
+    room: room // || '*'  // Use specific room if provided, otherwise wildcard
   };
   
   const options = {
