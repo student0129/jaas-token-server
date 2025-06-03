@@ -87,20 +87,25 @@ app.post('/token', (req, res) => {
 
 // Access code generation function
 function generateAccessCode(clientName, meetingDateTime) {
-  const date = new Date(meetingDateTime);
+  // Ensure we're working with a proper UTC date
+  const utcDate = new Date(meetingDateTime);
   
-  // Create window: 3 minutes before meeting + 2 hours duration
-  const windowStart = new Date(date.getTime() - 3 * 60 * 1000); // 3 minutes early
-  const windowEnd = new Date(date.getTime() + 2 * 60 * 60 * 1000); // 2 hours after meeting start
+  console.log('generateAccessCode input:', {
+    input: meetingDateTime,
+    parsedDate: utcDate.toISOString(),
+    isUTC: 'Should be UTC'
+  });
   
-  // Encode meeting timestamp in the code
-  // Use minutes since epoch to make it shorter (divide by 60000)
-  const meetingTimestamp = Math.floor(date.getTime() / 60000); // Minutes since epoch
+  // Create window: 3 minutes before meeting + 2 hours duration (all in UTC)
+  const windowStart = new Date(utcDate.getTime() - 3 * 60 * 1000); // 3 minutes early
+  const windowEnd = new Date(utcDate.getTime() + 2 * 60 * 60 * 1000); // 2 hours after meeting start
   
-  // Create seed from ONLY the secret key and timestamp (no client name)
-  // This makes the code client-name independent
-  const dateString = date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
-  const seed = dateString + SECRET_KEY;
+  // Encode meeting timestamp in the code (using UTC time)
+  const meetingTimestamp = Math.floor(utcDate.getTime() / 60000); // Minutes since epoch (UTC)
+  
+  // Create seed from ONLY the UTC timestamp and secret key (no client name)
+  const utcDateString = utcDate.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM (UTC)
+  const seed = utcDateString + SECRET_KEY;
   
   // Generate base hash
   let hash = 0;
@@ -114,30 +119,31 @@ function generateAccessCode(clientName, meetingDateTime) {
   const baseCode = Math.abs(hash % 9000) + 1000; // 4 digits: 1000-9999
   
   // Encode timestamp in last 4 digits
-  // Use last 4 digits of timestamp for time encoding
   const timeCode = meetingTimestamp % 10000; // Last 4 digits
   
   // Combine: 4 digits base + 4 digits time = 8 digit code
   const fullCode = baseCode.toString() + timeCode.toString().padStart(4, '0');
   
-  console.log('Code generation:', {
-    meetingTime: date.toISOString(),
+  console.log('Code generation (UTC-based):', {
+    meetingTimeUTC: utcDate.toISOString(),
     meetingTimestamp: meetingTimestamp,
     baseCode: baseCode,
     timeCode: timeCode,
-    fullCode: fullCode
+    fullCode: fullCode,
+    windowStartUTC: windowStart.toISOString(),
+    windowEndUTC: windowEnd.toISOString()
   });
   
   return {
     code: fullCode,
     windowStart: windowStart,
     windowEnd: windowEnd,
-    meetingStart: date,
+    meetingStart: utcDate,
     encodedTimestamp: meetingTimestamp
   };
 }
 
-// Decode meeting time from access code (client-name independent)
+// Decode meeting time from access code (UTC-based)
 function decodeMeetingTime(code) {
   if (code.length !== 8) {
     console.log('Invalid code length:', code.length);
@@ -148,32 +154,33 @@ function decodeMeetingTime(code) {
   const timeCode = parseInt(code.slice(-4));
   console.log('Extracted time code:', timeCode);
   
-  // We need to find the full timestamp that ends with these 4 digits
-  const now = Date.now();
-  const currentMinutes = Math.floor(now / 60000);
+  // We need to find the full UTC timestamp that ends with these 4 digits
+  const nowUTC = new Date(); // This is already UTC
+  const currentMinutesUTC = Math.floor(nowUTC.getTime() / 60000);
   
-  console.log('Current minutes since epoch:', currentMinutes);
-  console.log('Looking for minutes ending in:', timeCode);
+  console.log('Current UTC time:', nowUTC.toISOString());
+  console.log('Current minutes since epoch (UTC):', currentMinutesUTC);
+  console.log('Looking for UTC minutes ending in:', timeCode);
   
-  // Check up to 24 hours ago and 24 hours ahead (wider search range)
+  // Check up to 24 hours ago and 24 hours ahead (in UTC)
   for (let minutesOffset = -1440; minutesOffset <= 1440; minutesOffset++) {
-    const candidateMinutes = currentMinutes + minutesOffset;
+    const candidateMinutesUTC = currentMinutesUTC + minutesOffset;
     
-    if (candidateMinutes % 10000 === timeCode) {
-      console.log('Found candidate minutes:', candidateMinutes);
+    if (candidateMinutesUTC % 10000 === timeCode) {
+      console.log('Found candidate UTC minutes:', candidateMinutesUTC);
       
-      // Found a match! Verify it generates the same code
-      const candidateDate = new Date(candidateMinutes * 60000);
-      console.log('Candidate date:', candidateDate.toISOString());
+      // Found a match! Create UTC date
+      const candidateUTCDate = new Date(candidateMinutesUTC * 60000);
+      console.log('Candidate UTC date:', candidateUTCDate.toISOString());
       
       try {
-        // Generate test code without client name (client-independent)
-        const testCode = generateAccessCode('', candidateDate);
+        // Generate test code using this UTC time
+        const testCode = generateAccessCode('', candidateUTCDate.toISOString());
         console.log('Generated test code:', testCode.code, 'vs received:', code);
         
         if (testCode.code === code) {
-          console.log('Successfully decoded meeting time:', candidateDate.toISOString());
-          return candidateDate;
+          console.log('Successfully decoded UTC meeting time:', candidateUTCDate.toISOString());
+          return candidateUTCDate;
         }
       } catch (error) {
         console.log('Error generating test code:', error);
@@ -181,7 +188,7 @@ function decodeMeetingTime(code) {
     }
   }
   
-  console.log('Could not find matching timestamp for time code:', timeCode);
+  console.log('Could not find matching UTC timestamp for time code:', timeCode);
   return null;
 }
 
