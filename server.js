@@ -222,8 +222,32 @@ app.post('/generate-code', (req, res) => {
     return res.status(400).json({ error: 'Client name and meeting date/time are required' });
   }
   
+  console.log('Code generation request:', {
+    clientName: clientName,
+    meetingDateTime: meetingDateTime,
+    currentServerTime: new Date().toISOString()
+  });
+  
   try {
-    const result = generateAccessCode(clientName, meetingDateTime);
+    // Parse the datetime - it comes from HTML datetime-local input
+    // which gives us local time without timezone info
+    const meetingDate = new Date(meetingDateTime);
+    
+    console.log('Parsed meeting date:', {
+      original: meetingDateTime,
+      parsed: meetingDate.toISOString(),
+      localString: meetingDate.toString()
+    });
+    
+    const result = generateAccessCode(clientName, meetingDate);
+    
+    console.log('Generated code result:', {
+      code: result.code,
+      meetingStart: result.meetingStart.toISOString(),
+      windowStart: result.windowStart.toISOString(),
+      windowEnd: result.windowEnd.toISOString()
+    });
+    
     res.json(result);
   } catch (error) {
     console.error('Code generation error:', error);
