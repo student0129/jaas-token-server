@@ -22,8 +22,8 @@ app.options('*', cors());
 // Environment variables
 const APP_ID = process.env.APP_ID;
 const privateKey = process.env.PRIVATE_KEY;
-const SECRET_KEY = process.env.SECRET_KEY || "ProMoNtOrY_AI_2025_SecReT";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "YourSecureAdminPassword123";
+const SECRET_KEY = process.env.SECRET_KEY;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // Original token endpoint
 app.post('/token', (req, res) => {
