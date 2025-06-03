@@ -1,12 +1,25 @@
-const express = require('express');
+if (!code) {
+    return res.status(400).json({ valid: false });
+  }const express = require('express');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const crypto = require('crypto');
 
 const app = express();
-app.use(cors());
+
+// Enhanced CORS configuration
+app.use(cors({
+  origin: '*', // Allow all origins for now
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false
+}));
+
 app.use(bodyParser.json());
+
+// Add explicit OPTIONS handler for preflight requests
+app.options('*', cors());
 
 // This is where the APP_ID will be used in the header
 const APP_ID = process.env.APP_ID;
@@ -15,8 +28,8 @@ const APP_ID = process.env.APP_ID;
 const privateKey = process.env.PRIVATE_KEY;
 
 // Add these new environment variables for access code system
-const SECRET_KEY = process.env.SECRET_KEY;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const SECRET_KEY = process.env.SECRET_KEY || "ProMoNtOrY_AI_2025_SecReT";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "YourSecureAdminPassword123";
 
 app.post('/token', (req, res) => {
   const { name, room, email } = req.body;
@@ -87,15 +100,58 @@ app.post('/token', (req, res) => {
 
 // Admin authentication endpoint
 app.post('/admin-auth', (req, res) => {
+  // Add CORS headers explicitly
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
   const { password } = req.body;
   
+  console.log('Admin auth attempt:', { 
+    receivedPassword: password ? '[PASSWORD PROVIDED]' : '[NO PASSWORD]',
+    expectedPassword: ADMIN_PASSWORD ? '[PASSWORD SET]' : '[NO PASSWORD SET]',
+    match: password === ADMIN_PASSWORD
+  });
+  
   if (password === ADMIN_PASSWORD) {
+    console.log('Authentication successful');
     res.json({ authenticated: true });
   } else {
+    console.log('Authentication failed');
     res.status(401).json({ authenticated: false });
   }
 });
 
+// Generate access code endpoint
+app.post('/generate-code', (req, res) => {
+  // Add CORS headers explicitly
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
+  const { clientName, meetingDateTime } = req.body;
+  
+  if (!clientName || !meetingDateTime) {
+    return res.status(400).json({ error: 'Client name and meeting date/time are required' });
+  }
+  
+  try {
+    const result = generateAccessCode(clientName, meetingDateTime);
+    res.json(result);
+  } catch (error) {
+    console.error('Code generation error:', error);
+    res.status(500).json({ error: 'Failed to generate access code' });
+  }
+});
+
+// Validate access code endpoint
+app.post('/validate-code', (req, res) => {
+  // Add CORS headers explicitly
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
+  const { code, clientName } = req.body;
 // Access code generation function
 function generateAccessCode(clientName, meetingDateTime) {
   // Use the exact meeting time (not rounded to 2-hour windows)
@@ -128,31 +184,6 @@ function generateAccessCode(clientName, meetingDateTime) {
     meetingStart: date
   };
 }
-
-// Generate access code endpoint
-app.post('/generate-code', (req, res) => {
-  const { clientName, meetingDateTime } = req.body;
-  
-  if (!clientName || !meetingDateTime) {
-    return res.status(400).json({ error: 'Client name and meeting date/time are required' });
-  }
-  
-  try {
-    const result = generateAccessCode(clientName, meetingDateTime);
-    res.json(result);
-  } catch (error) {
-    console.error('Code generation error:', error);
-    res.status(500).json({ error: 'Failed to generate access code' });
-  }
-});
-
-// Validate access code endpoint
-app.post('/validate-code', (req, res) => {
-  const { code, clientName } = req.body;
-  
-  if (!code) {
-    return res.status(400).json({ valid: false });
-  }
   
   const now = new Date();
   
