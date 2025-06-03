@@ -131,32 +131,48 @@ function generateAccessCode(clientName, meetingDateTime) {
 // Decode meeting time from access code
 function decodeMeetingTime(code, clientName) {
   if (code.length !== 8) {
+    console.log('Invalid code length:', code.length);
     return null;
   }
   
   // Extract time code (last 4 digits)
   const timeCode = parseInt(code.slice(-4));
+  console.log('Extracted time code:', timeCode);
   
   // We need to find the full timestamp that ends with these 4 digits
-  // Check recent time windows (last few days worth of minutes)
+  // Check recent time windows
   const now = Date.now();
   const currentMinutes = Math.floor(now / 60000);
   
-  // Check up to 7 days ago (7 * 24 * 60 = 10080 minutes)
-  for (let minutesAgo = 0; minutesAgo <= 10080; minutesAgo++) {
-    const candidateMinutes = currentMinutes - minutesAgo;
+  console.log('Current minutes since epoch:', currentMinutes);
+  console.log('Looking for minutes ending in:', timeCode);
+  
+  // Check up to 24 hours ago and 24 hours ahead (wider search range)
+  for (let minutesOffset = -1440; minutesOffset <= 1440; minutesOffset++) {
+    const candidateMinutes = currentMinutes + minutesOffset;
     
     if (candidateMinutes % 10000 === timeCode) {
+      console.log('Found candidate minutes:', candidateMinutes);
+      
       // Found a match! Verify it generates the same code
       const candidateDate = new Date(candidateMinutes * 60000);
-      const testCode = generateAccessCode(clientName, candidateDate);
+      console.log('Candidate date:', candidateDate.toISOString());
       
-      if (testCode.code === code) {
-        return candidateDate;
+      try {
+        const testCode = generateAccessCode(clientName, candidateDate);
+        console.log('Generated test code:', testCode.code, 'vs received:', code);
+        
+        if (testCode.code === code) {
+          console.log('Successfully decoded meeting time:', candidateDate.toISOString());
+          return candidateDate;
+        }
+      } catch (error) {
+        console.log('Error generating test code:', error);
       }
     }
   }
   
+  console.log('Could not find matching timestamp for time code:', timeCode);
   return null;
 }
 
