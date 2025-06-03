@@ -22,8 +22,8 @@ app.options('*', cors());
 // Environment variables
 const APP_ID = process.env.APP_ID;
 const privateKey = process.env.PRIVATE_KEY;
-const SECRET_KEY = process.env.SECRET_KEY;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const SECRET_KEY = process.env.SECRET_KEY || "ProMoNtOrY_AI_2025_SecReT";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "YourSecureAdminPassword123";
 
 // Original token endpoint
 app.post('/token', (req, res) => {
@@ -97,9 +97,10 @@ function generateAccessCode(clientName, meetingDateTime) {
   // Use minutes since epoch to make it shorter (divide by 60000)
   const meetingTimestamp = Math.floor(date.getTime() / 60000); // Minutes since epoch
   
-  // Create seed from client name and secret (timestamp will be encoded separately)
-  const clientNormalized = clientName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const seed = clientNormalized + SECRET_KEY;
+  // Create seed from ONLY the secret key and timestamp (no client name)
+  // This makes the code client-name independent
+  const dateString = date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+  const seed = dateString + SECRET_KEY;
   
   // Generate base hash
   let hash = 0;
@@ -119,6 +120,14 @@ function generateAccessCode(clientName, meetingDateTime) {
   // Combine: 4 digits base + 4 digits time = 8 digit code
   const fullCode = baseCode.toString() + timeCode.toString().padStart(4, '0');
   
+  console.log('Code generation:', {
+    meetingTime: date.toISOString(),
+    meetingTimestamp: meetingTimestamp,
+    baseCode: baseCode,
+    timeCode: timeCode,
+    fullCode: fullCode
+  });
+  
   return {
     code: fullCode,
     windowStart: windowStart,
@@ -128,8 +137,8 @@ function generateAccessCode(clientName, meetingDateTime) {
   };
 }
 
-// Decode meeting time from access code
-function decodeMeetingTime(code, clientName) {
+// Decode meeting time from access code (client-name independent)
+function decodeMeetingTime(code) {
   if (code.length !== 8) {
     console.log('Invalid code length:', code.length);
     return null;
@@ -140,7 +149,6 @@ function decodeMeetingTime(code, clientName) {
   console.log('Extracted time code:', timeCode);
   
   // We need to find the full timestamp that ends with these 4 digits
-  // Check recent time windows
   const now = Date.now();
   const currentMinutes = Math.floor(now / 60000);
   
@@ -159,7 +167,8 @@ function decodeMeetingTime(code, clientName) {
       console.log('Candidate date:', candidateDate.toISOString());
       
       try {
-        const testCode = generateAccessCode(clientName, candidateDate);
+        // Generate test code without client name (client-independent)
+        const testCode = generateAccessCode('', candidateDate);
         console.log('Generated test code:', testCode.code, 'vs received:', code);
         
         if (testCode.code === code) {
@@ -242,8 +251,8 @@ app.post('/validate-code', (req, res) => {
   });
   
   try {
-    // Decode the meeting time from the access code
-    const meetingTime = decodeMeetingTime(code, clientName || '');
+    // Decode the meeting time from the access code (no client name needed)
+    const meetingTime = decodeMeetingTime(code);
     
     if (!meetingTime) {
       console.log('Could not decode meeting time from code');
@@ -252,8 +261,8 @@ app.post('/validate-code', (req, res) => {
     
     console.log('Decoded meeting time:', meetingTime.toISOString());
     
-    // Generate the expected code for this meeting time
-    const expectedCodeData = generateAccessCode(clientName || '', meetingTime);
+    // Generate the expected code for this meeting time (client-independent)
+    const expectedCodeData = generateAccessCode('', meetingTime);
     
     // Check if we're within the valid window
     const now = new Date();
@@ -275,24 +284,6 @@ app.post('/validate-code', (req, res) => {
         meetingStart: expectedCodeData.meetingStart,
         windowEnd: expectedCodeData.windowEnd
       });
-    }
-    
-    // Also try with common test client names
-    const commonClients = ['client', 'demo', 'test', 'meeting'];
-    for (const testClient of commonClients) {
-      const testMeetingTime = decodeMeetingTime(code, testClient);
-      if (testMeetingTime) {
-        const testCodeData = generateAccessCode(testClient, testMeetingTime);
-        const testIsWithinWindow = now >= testCodeData.windowStart && now <= testCodeData.windowEnd;
-        
-        if (testCodeData.code === code && testIsWithinWindow) {
-          return res.json({ 
-            valid: true,
-            meetingStart: testCodeData.meetingStart,
-            windowEnd: testCodeData.windowEnd
-          });
-        }
-      }
     }
     
     res.json({ 
