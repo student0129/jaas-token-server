@@ -1,6 +1,4 @@
-if (!code) {
-    return res.status(400).json({ valid: false });
-  }const express = require('express');
+const express = require('express');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -21,16 +19,13 @@ app.use(bodyParser.json());
 // Add explicit OPTIONS handler for preflight requests
 app.options('*', cors());
 
-// This is where the APP_ID will be used in the header
+// Environment variables
 const APP_ID = process.env.APP_ID;
-
-// Create the private key string with the BEGIN and END markers
 const privateKey = process.env.PRIVATE_KEY;
+const SECRET_KEY = process.env.SECRET_KEY;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-// Add these new environment variables for access code system
-const SECRET_KEY = process.env.SECRET_KEY || "ProMoNtOrY_AI_2025_SecReT";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "YourSecureAdminPassword123";
-
+// Original token endpoint
 app.post('/token', (req, res) => {
   const { name, room, email } = req.body;
   
@@ -69,7 +64,7 @@ app.post('/token', (req, res) => {
         email: email || ""
       }
     },
-    room: room // || '*'  // Use specific room if provided, otherwise wildcard
+    room: room
   };
   
   const options = {
@@ -83,12 +78,6 @@ app.post('/token', (req, res) => {
   
   try {
     const token = jwt.sign(payload, privateKey, options);
-    
-    // For debugging - remove in production
-    // const decodedToken = jwt.decode(token, { complete: true });
-    // console.log('Header:', JSON.stringify(decodedToken.header, null, 2));
-    // console.log('Payload:', JSON.stringify(decodedToken.payload, null, 2));
-    
     res.json({ token });
   } catch (error) {
     console.error('JWT signing error:', error.message);
@@ -96,7 +85,38 @@ app.post('/token', (req, res) => {
   }
 });
 
-// NEW ENDPOINTS FOR ACCESS CODE SYSTEM
+// Access code generation function
+function generateAccessCode(clientName, meetingDateTime) {
+  // Use the exact meeting time (not rounded to 2-hour windows)
+  const date = new Date(meetingDateTime);
+  
+  // Create window: 3 minutes before meeting + 2 hours duration
+  const windowStart = new Date(date.getTime() - 3 * 60 * 1000); // 3 minutes early
+  const windowEnd = new Date(date.getTime() + 2 * 60 * 60 * 1000); // 2 hours after meeting start
+  
+  // Create seed from exact date/time, client name, and secret
+  const dateString = date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM (include minutes)
+  const clientNormalized = clientName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const seed = dateString + clientNormalized + SECRET_KEY;
+  
+  // Simple hash function to generate code
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Convert to 6-digit code
+  const code = Math.abs(hash % 900000) + 100000; // Ensures 6 digits
+  
+  return {
+    code: code.toString(),
+    windowStart: windowStart,
+    windowEnd: windowEnd,
+    meetingStart: date
+  };
+}
 
 // Admin authentication endpoint
 app.post('/admin-auth', (req, res) => {
@@ -152,38 +172,10 @@ app.post('/validate-code', (req, res) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   
   const { code, clientName } = req.body;
-// Access code generation function
-function generateAccessCode(clientName, meetingDateTime) {
-  // Use the exact meeting time (not rounded to 2-hour windows)
-  const date = new Date(meetingDateTime);
   
-  // Create window: 3 minutes before meeting + 2 hours duration
-  const windowStart = new Date(date.getTime() - 3 * 60 * 1000); // 3 minutes early
-  const windowEnd = new Date(date.getTime() + 2 * 60 * 60 * 1000); // 2 hours after meeting start
-  
-  // Create seed from exact date/time, client name, and secret
-  const dateString = date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM (include minutes)
-  const clientNormalized = clientName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const seed = dateString + clientNormalized + SECRET_KEY;
-  
-  // Simple hash function to generate code
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    const char = seed.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+  if (!code) {
+    return res.status(400).json({ valid: false });
   }
-  
-  // Convert to 6-digit code
-  const code = Math.abs(hash % 900000) + 100000; // Ensures 6 digits
-  
-  return {
-    code: code.toString(),
-    windowStart: windowStart,
-    windowEnd: windowEnd,
-    meetingStart: date
-  };
-}
   
   const now = new Date();
   
