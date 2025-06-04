@@ -24,13 +24,14 @@ const APP_ID = process.env.APP_ID;
 const privateKey = process.env.PRIVATE_KEY;
 const SECRET_KEY = process.env.SECRET_KEY;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const HOST_NAME = process.env.HOST_NAME;
 
 // Original token endpoint
 app.post('/token', (req, res) => {
   const { name, room, email } = req.body;
   
-  // Determine if user is moderator based on whether their name includes "taher"
-  const isModerator = name && name.toLowerCase().includes('taher');
+  // Determine if user is moderator based on whether their name includes HOST_NAME
+  const isModerator = name && name.toLowerCase().includes(HOST_NAME.toLowerCase());
   
   // Extract the sub value from APP_ID
   const SUB = APP_ID.split('/')[0];
@@ -58,6 +59,7 @@ app.post('/token', (req, res) => {
       user: {
         'hidden-from-recorder': false,
         moderator: isModerator,
+        role: isModerator ? 'moderator' : 'participant', // Add explicit role
         name: name || 'Guest',
         id: randomId,
         avatar: "",
