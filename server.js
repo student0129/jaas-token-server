@@ -58,8 +58,8 @@ app.post('/token', (req, res) => {
       },
       user: {
         'hidden-from-recorder': false,
-        moderator: isModerator ? 'true' : 'false',
-        // role: isModerator ? 'moderator' : 'participant', // Add explicit role
+        moderator: isModerator,
+        role: isModerator ? 'moderator' : 'participant', // Add explicit role
         name: name || 'Guest',
         id: randomId,
         avatar: "",
